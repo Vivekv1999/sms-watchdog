@@ -76,6 +76,9 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelectRole
             Zero-Trust Protected: Worker devices are isolated and cannot view messages from other accounts.
           </Text>
         </View>
+
+        {/* Version Badge */}
+        <Text style={styles.versionText}>SMS Watchdog v1.0.1 (Build 2)</Text>
       </View>
     </SafeAreaView>
   );
@@ -200,5 +203,13 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontSize: 11,
     lineHeight: 15,
+  },
+  versionText: {
+    color: Colors.textMuted,
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 18,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
 });

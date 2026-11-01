@@ -388,6 +388,9 @@ export const WorkerSetupScreen: React.FC<WorkerSetupScreenProps> = ({ onBackToRo
         <TouchableOpacity style={styles.backBtn} onPress={onBackToRoles}>
           <Text style={styles.backBtnText}>← Switch Device Role (Admin Mode)</Text>
         </TouchableOpacity>
+
+        {/* App Version */}
+        <Text style={styles.versionFooter}>SMS Watchdog v1.0.1 (Build 2)</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -647,5 +650,14 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 13,
     fontWeight: '500',
+  },
+  versionFooter: {
+    color: Colors.textMuted,
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 18,
+    marginBottom: 10,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
 });

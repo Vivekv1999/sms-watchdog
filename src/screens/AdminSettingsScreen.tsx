@@ -336,6 +336,9 @@ export const AdminSettingsScreen: React.FC<AdminSettingsScreenProps> = ({
         >
           <Text style={styles.resetRoleBtnText}>Switch Device Role</Text>
         </TouchableOpacity>
+
+        {/* App Version */}
+        <Text style={styles.versionFooter}>SMS Watchdog v1.0.1 (Build 2)</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -618,5 +621,14 @@ const styles = StyleSheet.create({
     color: Colors.danger,
     fontSize: 13,
     fontWeight: '600',
+  },
+  versionFooter: {
+    color: Colors.textMuted,
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 16,
+    marginBottom: 8,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
 });
