@@ -9,6 +9,7 @@ import {
   StatusBar,
   RefreshControl,
   Alert,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../theme/colors';
@@ -106,6 +107,27 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
     const devices = await CloudSyncService.fetchGroupDevices(fb.projectId, fb.apiKey, gid);
     const pending = devices.filter((d) => d.status === 'PENDING');
     setPendingDevices(pending);
+
+    // 3. Keep filterConfig in sync with local storage
+    const localConfig = await StorageService.getFilterConfig();
+    setFilterConfig(localConfig);
+  };
+
+  const toggleNoForwardMode = async (enableNoForward: boolean) => {
+    const newMode = enableNoForward ? 'NO_FORWARD' : 'SPECIFIC';
+    const updatedConfig: FilterConfig = {
+      ...filterConfig,
+      mode: newMode,
+      noMessageForwarding: enableNoForward,
+    };
+    setFilterConfig(updatedConfig);
+    await StorageService.saveFilterConfig(updatedConfig);
+
+    const fb = await StorageService.getFirebaseConfig();
+    const gid = await StorageService.getGroupId();
+    if (fb.projectId && gid) {
+      await CloudSyncService.syncGroupFilterConfig(fb.projectId, fb.apiKey, gid, updatedConfig);
+    }
   };
 
   const onRefresh = async () => {
@@ -211,8 +233,17 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
           <TouchableOpacity onPress={onNavigateToSettings} activeOpacity={0.7}>
             <Text style={styles.subtitle} numberOfLines={1}>
               Group: <Text style={styles.highlightText}>{groupId}</Text> • Rule:{' '}
-              <Text style={styles.highlightText}>
-                {filterConfig.mode === 'ALL' ? 'ALL SMS ⚙️' : 'KEYWORDS ⚙️'}
+              <Text
+                style={[
+                  styles.highlightText,
+                  filterConfig.mode === 'NO_FORWARD' ? styles.highlightTextDanger : null,
+                ]}
+              >
+                {filterConfig.mode === 'NO_FORWARD'
+                  ? '🚫 NO FORWARD ⚙️'
+                  : filterConfig.mode === 'ALL'
+                  ? 'ALL SMS ⚙️'
+                  : 'KEYWORDS ⚙️'}
               </Text>
             </Text>
           </TouchableOpacity>
@@ -238,6 +269,37 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
             <Text style={styles.headerBtnIcon}>⚙️</Text>
           </TouchableOpacity>
         </View>
+      </View>
+
+      {/* Admin Quick Control: No Message Forwarding Switch */}
+      <View
+        style={[
+          styles.quickControlBanner,
+          filterConfig.mode === 'NO_FORWARD' ? styles.quickControlBannerActive : null,
+        ]}
+      >
+        <View style={styles.quickControlLeft}>
+          <View style={styles.quickControlTitleRow}>
+            <Text style={styles.quickControlIcon}>
+              {filterConfig.mode === 'NO_FORWARD' ? '🚫' : '📬'}
+            </Text>
+            <Text style={styles.quickControlTitle}>No Message Forwarding Switch</Text>
+            <View style={styles.adminOnlyPill}>
+              <Text style={styles.adminOnlyPillText}>ADMIN ONLY</Text>
+            </View>
+          </View>
+          <Text style={styles.quickControlSubtitle}>
+            {filterConfig.mode === 'NO_FORWARD'
+              ? 'ON: Worker SIM devices will NOT forward any SMS'
+              : 'OFF: Worker devices are actively forwarding SMS'}
+          </Text>
+        </View>
+        <Switch
+          value={filterConfig.mode === 'NO_FORWARD'}
+          onValueChange={toggleNoForwardMode}
+          trackColor={{ false: Colors.border, true: Colors.danger }}
+          thumbColor={filterConfig.mode === 'NO_FORWARD' ? Colors.white : Colors.textSecondary}
+        />
       </View>
 
       {/* Pending Approval Banner (Alerts Admin if new APK was installed) */}
@@ -431,6 +493,64 @@ const styles = StyleSheet.create({
   highlightText: {
     color: Colors.primary,
     fontWeight: '700',
+  },
+  highlightTextDanger: {
+    color: Colors.danger,
+    fontWeight: '800',
+  },
+  quickControlBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.card,
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  quickControlBannerActive: {
+    borderColor: Colors.danger,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  },
+  quickControlLeft: {
+    flex: 1,
+    marginRight: 10,
+  },
+  quickControlTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  quickControlIcon: {
+    fontSize: 14,
+    marginRight: 6,
+  },
+  quickControlTitle: {
+    color: Colors.textPrimary,
+    fontSize: 13,
+    fontWeight: '700',
+    marginRight: 6,
+  },
+  adminOnlyPill: {
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+  },
+  adminOnlyPillText: {
+    color: Colors.danger,
+    fontSize: 8,
+    fontWeight: '800',
+  },
+  quickControlSubtitle: {
+    color: Colors.textSecondary,
+    fontSize: 11,
+    marginTop: 2,
   },
   headerRight: {
     flexDirection: 'row',

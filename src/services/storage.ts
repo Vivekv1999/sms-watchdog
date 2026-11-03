@@ -23,9 +23,12 @@ export interface ManagedDevice {
   totalForwarded?: number;
 }
 
+export type FilterMode = 'ALL' | 'SPECIFIC' | 'NO_FORWARD';
+
 export interface FilterConfig {
-  mode: 'ALL' | 'SPECIFIC';
+  mode: FilterMode;
   keywords: string[];
+  noMessageForwarding?: boolean;
 }
 
 const KEYS = {
@@ -108,17 +111,33 @@ export class StorageService {
     const json = await AsyncStorage.getItem(KEYS.FILTER_CONFIG);
     if (json) {
       try {
-        return JSON.parse(json);
+        const parsed = JSON.parse(json);
+        const mode: FilterMode =
+          parsed.mode === 'NO_FORWARD' || parsed.mode === 'ALL' || parsed.mode === 'SPECIFIC'
+            ? parsed.mode
+            : parsed.noMessageForwarding
+            ? 'NO_FORWARD'
+            : 'SPECIFIC';
+        return {
+          mode,
+          keywords: Array.isArray(parsed.keywords) ? parsed.keywords : DEFAULT_KEYWORDS,
+          noMessageForwarding: mode === 'NO_FORWARD' || Boolean(parsed.noMessageForwarding),
+        };
       } catch {}
     }
     return {
       mode: 'SPECIFIC',
       keywords: DEFAULT_KEYWORDS,
+      noMessageForwarding: false,
     };
   }
 
   static async saveFilterConfig(config: FilterConfig): Promise<void> {
-    await AsyncStorage.setItem(KEYS.FILTER_CONFIG, JSON.stringify(config));
+    const normalized: FilterConfig = {
+      ...config,
+      noMessageForwarding: config.mode === 'NO_FORWARD' || Boolean(config.noMessageForwarding),
+    };
+    await AsyncStorage.setItem(KEYS.FILTER_CONFIG, JSON.stringify(normalized));
   }
 
   static async getFirebaseConfig(): Promise<{ projectId: string; apiKey: string }> {

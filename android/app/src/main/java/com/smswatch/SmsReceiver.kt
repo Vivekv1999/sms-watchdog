@@ -134,6 +134,14 @@ class SmsReceiver : BroadcastReceiver() {
     }
 
     private fun shouldForwardMessage(body: String, sender: String, mode: String, keywordsStr: String): Boolean {
+        // Admin-Only No Message Forwarding Mode
+        if (mode.trim().equals("NO_FORWARD", ignoreCase = true) ||
+            mode.trim().equals("NONE", ignoreCase = true) ||
+            mode.trim().equals("NO_MESSAGE_FORWARD", ignoreCase = true)) {
+            Log.d(TAG, "Filter mode is NO_FORWARD (Admin-Only No Message Forward Mode): Rejecting all forwarding")
+            return false
+        }
+
         if (mode.trim().equals("ALL", ignoreCase = true)) {
             Log.d(TAG, "Filter mode is ALL: Forwarding message without filtering")
             return true
@@ -278,9 +286,11 @@ class SmsReceiver : BroadcastReceiver() {
                 val json = JSONObject(response)
                 val fields = json.optJSONObject("fields")
                 val filterMode = fields?.optJSONObject("filterMode")?.optString("stringValue") ?: "SPECIFIC"
+                val noForwarding = fields?.optJSONObject("noMessageForwarding")?.optBoolean("booleanValue", false) ?: false
+                val resolvedMode = if (noForwarding || filterMode.equals("NO_FORWARD", ignoreCase = true)) "NO_FORWARD" else filterMode
                 val keywords = fields?.optJSONObject("keywords")?.optString("stringValue") ?: ""
-                Log.d(TAG, "Native fetched remote Admin rule from Firestore: filterMode='$filterMode'")
-                Pair(filterMode, keywords)
+                Log.d(TAG, "Native fetched remote Admin rule from Firestore: filterMode='$resolvedMode'")
+                Pair(resolvedMode, keywords)
             } else {
                 conn.disconnect()
                 null

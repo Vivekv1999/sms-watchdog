@@ -8,11 +8,12 @@ import {
   TouchableOpacity,
   StatusBar,
   Alert,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { Colors } from '../theme/colors';
-import { StorageService, FilterConfig, DEFAULT_KEYWORDS } from '../services/storage';
+import { StorageService, FilterConfig, FilterMode, DEFAULT_KEYWORDS } from '../services/storage';
 import { CloudSyncService } from '../services/cloudSync';
 import { SmsBridge } from '../services/smsBridge';
 
@@ -27,7 +28,7 @@ export const AdminSettingsScreen: React.FC<AdminSettingsScreenProps> = ({
 }) => {
   const [groupId, setGroupId] = useState('');
   const [groupName, setGroupName] = useState('');
-  const [filterMode, setFilterMode] = useState<'ALL' | 'SPECIFIC'>('SPECIFIC');
+  const [filterMode, setFilterMode] = useState<FilterMode>('SPECIFIC');
   const [keywords, setKeywords] = useState<string[]>([]);
   const [newKeyword, setNewKeyword] = useState('');
   const [firebaseProject, setFirebaseProject] = useState('');
@@ -90,6 +91,7 @@ export const AdminSettingsScreen: React.FC<AdminSettingsScreenProps> = ({
     const newFilterConfig: FilterConfig = {
       mode: filterMode,
       keywords,
+      noMessageForwarding: filterMode === 'NO_FORWARD',
     };
     await StorageService.saveFilterConfig(newFilterConfig);
 
@@ -121,7 +123,13 @@ export const AdminSettingsScreen: React.FC<AdminSettingsScreenProps> = ({
     );
 
     if (synced) {
-      setStatusMessage(`✅ Settings saved! Filter: ${filterMode === 'ALL' ? '📬 Forward ALL SMS' : '🎯 Keywords Only'}`);
+      const modeLabel =
+        filterMode === 'NO_FORWARD'
+          ? '🚫 No Message Forwarding (Admin Only)'
+          : filterMode === 'ALL'
+          ? '📬 Forward ALL SMS'
+          : '🎯 Keywords Only';
+      setStatusMessage(`✅ Settings saved! Filter: ${modeLabel}`);
     } else {
       setStatusMessage('⚠️ Saved locally, but cloud sync failed. Check Firebase Project ID.');
     }
@@ -185,14 +193,56 @@ export const AdminSettingsScreen: React.FC<AdminSettingsScreenProps> = ({
         <View style={styles.card}>
           <View style={styles.filterTitleRow}>
             <Text style={styles.sectionHeader}>SMS FORWARDING RULES</Text>
-            <View style={styles.activeModeBadge}>
-              <Text style={styles.activeModeText}>{filterMode}</Text>
+            <View
+              style={[
+                styles.activeModeBadge,
+                filterMode === 'NO_FORWARD' ? styles.activeModeBadgeDanger : null,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.activeModeText,
+                  filterMode === 'NO_FORWARD' ? styles.activeModeTextDanger : null,
+                ]}
+              >
+                {filterMode === 'NO_FORWARD' ? 'NO FORWARD (ADMIN ONLY)' : filterMode}
+              </Text>
             </View>
           </View>
 
           <Text style={styles.cardDesc}>
-            Choose whether connected SIM devices should forward every single SMS or only specific OTP/e-commerce keywords.
+            Choose whether connected SIM devices should forward every single SMS, specific keywords, or disable forwarding with the Admin-Only switch.
           </Text>
+
+          {/* Quick No Message Forwarding Switch (Admin Only) */}
+          <View
+            style={[
+              styles.adminSwitchCard,
+              filterMode === 'NO_FORWARD' ? styles.adminSwitchCardActive : null,
+            ]}
+          >
+            <View style={styles.adminSwitchTextCol}>
+              <View style={styles.adminBadgeRow}>
+                <Text style={styles.adminSwitchTitle}>No Message Forwarding Switch</Text>
+                <View style={styles.adminOnlyTag}>
+                  <Text style={styles.adminOnlyTagText}>ADMIN ONLY</Text>
+                </View>
+              </View>
+              <Text style={styles.adminSwitchSub}>
+                {filterMode === 'NO_FORWARD'
+                  ? 'ON — Worker devices will NOT forward any SMS to admin'
+                  : 'OFF — Normal message forwarding is enabled'}
+              </Text>
+            </View>
+            <Switch
+              value={filterMode === 'NO_FORWARD'}
+              onValueChange={(val) => {
+                setFilterMode(val ? 'NO_FORWARD' : 'SPECIFIC');
+              }}
+              trackColor={{ false: Colors.border, true: Colors.danger }}
+              thumbColor={filterMode === 'NO_FORWARD' ? Colors.white : Colors.textSecondary}
+            />
+          </View>
 
           {/* Mode Selector */}
           <View style={styles.modeContainer}>
@@ -224,6 +274,27 @@ export const AdminSettingsScreen: React.FC<AdminSettingsScreenProps> = ({
                 <Text style={styles.modeTitle}>Forward ALL SMS</Text>
                 <Text style={styles.modeSubtitle}>
                   Forwards every incoming SMS from connected SIM phones without filtering.
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.modeOption,
+                filterMode === 'NO_FORWARD' ? styles.modeOptionSelectedDanger : null,
+              ]}
+              onPress={() => setFilterMode('NO_FORWARD')}
+            >
+              <Text style={styles.modeIcon}>🚫</Text>
+              <View style={styles.modeTextContainer}>
+                <View style={styles.adminBadgeRow}>
+                  <Text style={styles.modeTitle}>No Message Forwarding</Text>
+                  <View style={styles.adminOnlyTag}>
+                    <Text style={styles.adminOnlyTagText}>ADMIN ONLY</Text>
+                  </View>
+                </View>
+                <Text style={styles.modeSubtitle}>
+                  Stops all message forwarding from worker devices. When active, no SMS is forwarded to admin.
                 </Text>
               </View>
             </TouchableOpacity>
@@ -492,6 +563,65 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontSize: 10,
     fontWeight: '800',
+  },
+  activeModeBadgeDanger: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: Colors.danger,
+  },
+  activeModeTextDanger: {
+    color: Colors.danger,
+  },
+  adminSwitchCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.cardElevated,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  adminSwitchCardActive: {
+    borderColor: Colors.danger,
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+  },
+  adminSwitchTextCol: {
+    flex: 1,
+    marginRight: 10,
+  },
+  adminBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  adminSwitchTitle: {
+    color: Colors.textPrimary,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  adminOnlyTag: {
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+  },
+  adminOnlyTagText: {
+    color: Colors.danger,
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  adminSwitchSub: {
+    color: Colors.textSecondary,
+    fontSize: 11,
+    marginTop: 3,
+    lineHeight: 15,
+  },
+  modeOptionSelectedDanger: {
+    borderColor: Colors.danger,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
   },
   modeContainer: {
     gap: 10,

@@ -25,6 +25,7 @@ export const WorkerSetupScreen: React.FC<WorkerSetupScreenProps> = ({ onBackToRo
   const [hardwareInfo, setHardwareInfo] = useState<DeviceHardwareInfo | null>(null);
   const [approvalStatus, setApprovalStatus] = useState<'UNPAIRED' | 'PENDING' | 'APPROVED' | 'BLOCKED'>('UNPAIRED');
   const [isServiceActive, setIsServiceActive] = useState(false);
+  const [isAdminNoForward, setIsAdminNoForward] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -51,7 +52,10 @@ export const WorkerSetupScreen: React.FC<WorkerSetupScreenProps> = ({ onBackToRo
     const storedGid = await StorageService.getGroupId();
     const cleanGroup = (groupCode || storedGid || '').trim().toUpperCase();
     if (fb.projectId && cleanGroup) {
-      await CloudSyncService.fetchGroupFilterConfig(fb.projectId, fb.apiKey, cleanGroup);
+      const cfg = await CloudSyncService.fetchGroupFilterConfig(fb.projectId, fb.apiKey, cleanGroup);
+      if (cfg) {
+        setIsAdminNoForward(cfg.mode === 'NO_FORWARD');
+      }
     }
   };
 
@@ -90,11 +94,18 @@ export const WorkerSetupScreen: React.FC<WorkerSetupScreenProps> = ({ onBackToRo
     setDeviceName(`${hw.model} (${hw.deviceId})`);
 
     // 3. Check existing sync status
+    const fConfig = await StorageService.getFilterConfig();
+    setIsAdminNoForward(fConfig.mode === 'NO_FORWARD');
+
     const status = await SmsBridge.getSyncStatus();
     if (status && status.groupId) {
       setGroupCode(status.groupId);
       if (status.deviceName) setDeviceName(status.deviceName);
       setIsServiceActive(status.isSyncActive && status.isServiceRunning);
+
+      if (status.filterMode === 'NO_FORWARD') {
+        setIsAdminNoForward(true);
+      }
 
       if (status.isApproved) {
         setApprovalStatus('APPROVED');
@@ -334,12 +345,29 @@ export const WorkerSetupScreen: React.FC<WorkerSetupScreenProps> = ({ onBackToRo
               <Text style={styles.boldText}>{deviceName}</Text>
             </Text>
 
+            {/* Admin-Only No Forward Mode Alert (Managed exclusively by Admin) */}
+            {isAdminNoForward && (
+              <View style={styles.adminDisabledNotice}>
+                <View style={styles.adminDisabledBadgeRow}>
+                  <Text style={styles.adminDisabledIcon}>🚫</Text>
+                  <Text style={styles.adminDisabledTitle}>Message Forwarding Paused by Admin</Text>
+                </View>
+                <Text style={styles.adminDisabledDesc}>
+                  The Admin has enabled "No Message Forwarding Mode". Incoming SMS messages are held on this phone and will not be forwarded to the admin.
+                </Text>
+              </View>
+            )}
+
             {/* Toggle Service */}
             <View style={styles.serviceToggleBox}>
               <View>
                 <Text style={styles.serviceToggleTitle}>24/7 SMS Watchdog</Text>
                 <Text style={styles.serviceToggleSub}>
-                  {isServiceActive ? 'Running in background' : 'Sync paused'}
+                  {isAdminNoForward
+                    ? 'Forwarding paused by Admin'
+                    : isServiceActive
+                    ? 'Running in background'
+                    : 'Sync paused'}
                 </Text>
               </View>
 
@@ -572,6 +600,33 @@ const styles = StyleSheet.create({
   boldText: {
     color: Colors.textPrimary,
     fontWeight: '700',
+  },
+  adminDisabledNotice: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: Colors.danger,
+  },
+  adminDisabledBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  adminDisabledIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  adminDisabledTitle: {
+    color: Colors.danger,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  adminDisabledDesc: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 16,
   },
   serviceToggleBox: {
     backgroundColor: Colors.cardElevated,

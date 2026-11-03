@@ -1,4 +1,4 @@
-import { StorageService, AppMessage, ManagedDevice, FilterConfig } from './storage';
+import { StorageService, AppMessage, ManagedDevice, FilterConfig, FilterMode } from './storage';
 import { parseSmsDetails } from '../utils/otpExtractor';
 import { SmsBridge } from './smsBridge';
 
@@ -255,6 +255,7 @@ export class CloudSyncService {
         body: JSON.stringify({
           fields: {
             filterMode: { stringValue: config.mode },
+            noMessageForwarding: { booleanValue: config.mode === 'NO_FORWARD' },
             keywords: { stringValue: config.keywords.join(',') },
             updatedAt: { integerValue: Date.now().toString() },
           },
@@ -348,7 +349,14 @@ export class CloudSyncService {
 
       const data = await res.json();
       const fields = data.fields || {};
-      const filterMode = (fields.filterMode?.stringValue as 'ALL' | 'SPECIFIC') || 'SPECIFIC';
+      const rawMode = fields.filterMode?.stringValue;
+      const noForwarding = fields.noMessageForwarding?.booleanValue === true;
+      const filterMode: FilterMode =
+        noForwarding || rawMode === 'NO_FORWARD'
+          ? 'NO_FORWARD'
+          : rawMode === 'ALL'
+          ? 'ALL'
+          : 'SPECIFIC';
       const keywordsStr = fields.keywords?.stringValue || '';
       const keywords = keywordsStr
         ? keywordsStr.split(',').map((k: string) => k.trim().toLowerCase()).filter(Boolean)
@@ -357,6 +365,7 @@ export class CloudSyncService {
       const config: FilterConfig = {
         mode: filterMode,
         keywords,
+        noMessageForwarding: filterMode === 'NO_FORWARD',
       };
 
       await StorageService.saveFilterConfig(config);

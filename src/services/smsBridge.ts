@@ -13,7 +13,7 @@ export interface SyncConfig {
   deviceName: string;
   groupId: string;
   isApproved: boolean;
-  filterMode: 'ALL' | 'SPECIFIC';
+  filterMode: 'ALL' | 'SPECIFIC' | 'NO_FORWARD';
   keywords: string;
   firebaseProjectId?: string;
   firebaseApiKey?: string;
@@ -87,7 +87,7 @@ export class SmsBridge {
     return true;
   }
 
-  static async updateFilterSettings(filterMode: 'ALL' | 'SPECIFIC', keywords: string): Promise<boolean> {
+  static async updateFilterSettings(filterMode: 'ALL' | 'SPECIFIC' | 'NO_FORWARD', keywords: string): Promise<boolean> {
     if (SmsNativeModule?.updateFilterSettings) {
       return await SmsNativeModule.updateFilterSettings(filterMode, keywords);
     }
