@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../theme/colors';
+import { APP_VERSION_LABEL } from '../constants/app';
 import { SmsBridge, DeviceHardwareInfo, SyncStatus } from '../services/smsBridge';
 import { StorageService } from '../services/storage';
 import { CloudSyncService } from '../services/cloudSync';
@@ -442,7 +443,7 @@ export const WorkerSetupScreen: React.FC<WorkerSetupScreenProps> = ({ onBackToRo
         </TouchableOpacity>
 
         {/* App Version */}
-        <Text style={styles.versionFooter}>SMS Watchdog v1.0.1</Text>
+        <Text style={styles.versionFooter}>{APP_VERSION_LABEL}</Text>
       </ScrollView>
     </SafeAreaView>
   );

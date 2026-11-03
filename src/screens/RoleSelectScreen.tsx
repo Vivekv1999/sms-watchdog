@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../theme/colors';
+import { APP_VERSION_LABEL } from '../constants/app';
 
 interface RoleSelectScreenProps {
   onSelectRole: (role: 'ADMIN' | 'WORKER') => void;
@@ -70,7 +71,7 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelectRole
         </TouchableOpacity>
 
         {/* Version Badge */}
-        <Text style={styles.versionText}>SMS Watchdog v1.0.1</Text>
+        <Text style={styles.versionText}>{APP_VERSION_LABEL}</Text>
       </View>
     </SafeAreaView>
   );

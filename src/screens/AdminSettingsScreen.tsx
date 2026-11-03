@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { Colors } from '../theme/colors';
+import { APP_VERSION_LABEL } from '../constants/app';
 import { StorageService, FilterConfig, FilterMode, DEFAULT_KEYWORDS } from '../services/storage';
 import { CloudSyncService } from '../services/cloudSync';
 import { SmsBridge } from '../services/smsBridge';
@@ -443,7 +444,7 @@ export const AdminSettingsScreen: React.FC<AdminSettingsScreenProps> = ({
         </TouchableOpacity>
 
         {/* App Version */}
-        <Text style={styles.versionFooter}>SMS Watchdog v1.0.1</Text>
+        <Text style={styles.versionFooter}>{APP_VERSION_LABEL}</Text>
       </ScrollView>
     </SafeAreaView>
   );
