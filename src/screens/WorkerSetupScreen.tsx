@@ -64,6 +64,7 @@ export const WorkerSetupScreen: React.FC<WorkerSetupScreenProps> = ({ onBackToRo
         fb.projectId, fb.apiKey, cleanGroup, devId
       );
       setIsDevicePaused(paused);
+      await SmsBridge.setDevicePaused(paused);
     }
   };
 
@@ -441,7 +442,7 @@ export const WorkerSetupScreen: React.FC<WorkerSetupScreenProps> = ({ onBackToRo
         </TouchableOpacity>
 
         {/* App Version */}
-        <Text style={styles.versionFooter}>SMS Watchdog v1.0.1 (Build 2)</Text>
+        <Text style={styles.versionFooter}>SMS Watchdog v1.0.1</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -631,6 +632,14 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     borderWidth: 1,
     borderColor: Colors.danger,
+  },
+  devicePausedNotice: {
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: Colors.warning,
   },
   adminDisabledBadgeRow: {
     flexDirection: 'row',

@@ -106,6 +106,18 @@ export const AdminDevicesScreen: React.FC<AdminDevicesScreenProps> = ({ onBack }
     );
   };
 
+  const handleTogglePause = async (device: ManagedDevice, paused: boolean) => {
+    const fb = await StorageService.getFirebaseConfig();
+    await CloudSyncService.setDeviceForwardingPaused(
+      fb.projectId,
+      fb.apiKey,
+      groupId,
+      device.deviceId,
+      paused
+    );
+    await loadDevices();
+  };
+
   const pendingDevices = devices.filter((d) => d.status === 'PENDING');
   const approvedDevices = devices.filter((d) => d.status === 'APPROVED');
   const blockedDevices = devices.filter((d) => d.status === 'BLOCKED');
@@ -226,22 +238,41 @@ export const AdminDevicesScreen: React.FC<AdminDevicesScreenProps> = ({ onBack }
                           {dev.model} • ID: {dev.deviceId}
                         </Text>
                       </View>
-                      <View style={styles.activeBadge}>
-                        <View style={styles.activeDot} />
-                        <Text style={styles.activeBadgeText}>ACTIVE</Text>
-                      </View>
+                      {dev.pausedForwarding ? (
+                        <View style={styles.pausedBadge}>
+                          <Text style={styles.pausedBadgeText}>PAUSED</Text>
+                        </View>
+                      ) : (
+                        <View style={styles.activeBadge}>
+                          <View style={styles.activeDot} />
+                          <Text style={styles.activeBadgeText}>ACTIVE</Text>
+                        </View>
+                      )}
                     </View>
 
                     <View style={styles.cardFooter}>
                       <Text style={styles.lastPingText}>
-                        Status: Connected & listening for SMS
+                        {dev.pausedForwarding
+                          ? 'Forwarding paused by Admin'
+                          : 'Connected & listening for SMS'}
                       </Text>
-                      <TouchableOpacity
-                        style={styles.revokeBtn}
-                        onPress={() => handleRevoke(dev)}
-                      >
-                        <Text style={styles.revokeBtnText}>Revoke Access</Text>
-                      </TouchableOpacity>
+                      <View style={styles.activeActionsRow}>
+                        <TouchableOpacity
+                          style={[styles.pauseBtn, dev.pausedForwarding ? styles.resumeBtn : null]}
+                          onPress={() => handleTogglePause(dev, !dev.pausedForwarding)}
+                        >
+                          <Text style={[styles.pauseBtnText, dev.pausedForwarding ? styles.resumeBtnText : null]}>
+                            {dev.pausedForwarding ? '▶ Resume' : '⏸ Pause'}
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={styles.revokeBtn}
+                          onPress={() => handleRevoke(dev)}
+                        >
+                          <Text style={styles.revokeBtnText}>Revoke</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   </View>
                 ))
@@ -448,6 +479,44 @@ const styles = StyleSheet.create({
     color: Colors.success,
     fontSize: 10,
     fontWeight: '800',
+  },
+  pausedBadge: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: Colors.danger,
+  },
+  pausedBadgeText: {
+    color: Colors.danger,
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  activeActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pauseBtn: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderWidth: 1,
+    borderColor: Colors.danger,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  resumeBtn: {
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderColor: Colors.success,
+  },
+  pauseBtnText: {
+    color: Colors.danger,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  resumeBtnText: {
+    color: Colors.success,
   },
   actionRow: {
     flexDirection: 'row',

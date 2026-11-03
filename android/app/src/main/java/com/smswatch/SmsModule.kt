@@ -175,6 +175,17 @@ class SmsModule(private val reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
+    fun setDevicePaused(isPaused: Boolean, promise: Promise) {
+        try {
+            val prefs = reactContext.getSharedPreferences("SmsWatchPrefs", Context.MODE_PRIVATE)
+            prefs.edit().putBoolean("is_device_paused", isPaused).apply()
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("DEVICE_PAUSED_ERROR", e.message)
+        }
+    }
+
+    @ReactMethod
     fun getSyncStatus(promise: Promise) {
         try {
             val prefs = reactContext.getSharedPreferences("SmsWatchPrefs", Context.MODE_PRIVATE)

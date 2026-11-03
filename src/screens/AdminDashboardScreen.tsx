@@ -36,7 +36,6 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
   const [filterConfig, setFilterConfig] = useState<FilterConfig>({ mode: 'SPECIFIC', keywords: [] });
   const [pendingDevices, setPendingDevices] = useState<ManagedDevice[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<'ALL' | 'OTP' | 'FLIPKART' | 'AMAZON' | 'MEESHO' | 'BANKS'>('ALL');
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -73,7 +72,7 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
 
   useEffect(() => {
     applyFilters();
-  }, [messages, searchQuery, selectedCategory]);
+  }, [messages, searchQuery]);
 
   const loadData = async () => {
     const gid = await StorageService.getGroupId();
@@ -141,19 +140,6 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
   const applyFilters = () => {
     let result = [...messages];
 
-    // Category Filter
-    if (selectedCategory === 'OTP') {
-      result = result.filter((m) => Boolean(m.otp));
-    } else if (selectedCategory === 'FLIPKART') {
-      result = result.filter((m) => m.service === 'FLIPKART');
-    } else if (selectedCategory === 'AMAZON') {
-      result = result.filter((m) => m.service === 'AMAZON');
-    } else if (selectedCategory === 'MEESHO') {
-      result = result.filter((m) => m.service === 'MEESHO');
-    } else if (selectedCategory === 'BANKS') {
-      result = result.filter((m) => m.service.includes('BANK'));
-    }
-
     // Search Query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -162,7 +148,8 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
           m.sender.toLowerCase().includes(q) ||
           m.body.toLowerCase().includes(q) ||
           m.otp.includes(q) ||
-          m.deviceName.toLowerCase().includes(q)
+          m.deviceName.toLowerCase().includes(q) ||
+          m.service.toLowerCase().includes(q)
       );
     }
 
@@ -350,6 +337,22 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
         </View>
       </View>
 
+      {/* Per-Worker Pause / Active Controls */}
+      <TouchableOpacity
+        style={styles.workerControlBanner}
+        onPress={onNavigateToWorkerControl}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.workerControlBannerIcon}>🎛️</Text>
+        <View style={styles.workerControlBannerTextCol}>
+          <Text style={styles.workerControlBannerTitle}>Worker Device Controls</Text>
+          <Text style={styles.workerControlBannerSub}>
+            Pause or activate forwarding per worker phone
+          </Text>
+        </View>
+        <Text style={styles.workerControlBannerArrow}>Manage →</Text>
+      </TouchableOpacity>
+
       {/* Pending Approval Banner (Alerts Admin if new APK was installed) */}
       {pendingDevices.length > 0 ? (
         <TouchableOpacity
@@ -394,31 +397,6 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
             <Text style={styles.clearSearch}>✕</Text>
           </TouchableOpacity>
         ) : null}
-      </View>
-
-      {/* Category Filter Chips */}
-      <View style={styles.chipRow}>
-        {(['ALL', 'OTP', 'FLIPKART', 'AMAZON', 'MEESHO', 'BANKS'] as const).map(
-          (cat) => (
-            <TouchableOpacity
-              key={cat}
-              style={[
-                styles.chip,
-                selectedCategory === cat ? styles.chipSelected : null,
-              ]}
-              onPress={() => setSelectedCategory(cat)}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  selectedCategory === cat ? styles.chipTextSelected : null,
-                ]}
-              >
-                {cat}
-              </Text>
-            </TouchableOpacity>
-          )
-        )}
       </View>
 
       {/* Messages Feed */}
@@ -704,7 +682,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.card,
     borderRadius: 10,
     marginHorizontal: 16,
-    marginTop: 12,
+    marginTop: 10,
+    marginBottom: 6,
     paddingHorizontal: 12,
     borderWidth: 1,
     borderColor: Colors.border,
@@ -731,36 +710,9 @@ const styles = StyleSheet.create({
   clearFeedIcon: {
     fontSize: 14,
   },
-  chipRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  chip: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    backgroundColor: Colors.card,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  chipSelected: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  chipText: {
-    color: Colors.textSecondary,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  chipTextSelected: {
-    color: Colors.white,
-    fontWeight: '700',
-  },
   listContent: {
     padding: 16,
+    paddingTop: 8,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -810,5 +762,41 @@ const styles = StyleSheet.create({
   testBtnText: {
     fontSize: 11,
     fontWeight: '700',
+  },
+  workerControlBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.card,
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  workerControlBannerIcon: {
+    fontSize: 20,
+    marginRight: 12,
+  },
+  workerControlBannerTextCol: {
+    flex: 1,
+  },
+  workerControlBannerTitle: {
+    color: Colors.textPrimary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  workerControlBannerSub: {
+    color: Colors.textMuted,
+    fontSize: 11,
+    marginTop: 1,
+  },
+  workerControlBannerArrow: {
+    color: Colors.primary,
+    fontSize: 12,
+    fontWeight: '700',
+    marginLeft: 8,
   },
 });

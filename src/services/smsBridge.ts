@@ -101,6 +101,13 @@ export class SmsBridge {
     return true;
   }
 
+  static async setDevicePaused(isPaused: boolean): Promise<boolean> {
+    if (SmsNativeModule?.setDevicePaused) {
+      return await SmsNativeModule.setDevicePaused(isPaused);
+    }
+    return true;
+  }
+
   static async getSyncStatus(): Promise<SyncStatus | null> {
     if (SmsNativeModule?.getSyncStatus) {
       try {

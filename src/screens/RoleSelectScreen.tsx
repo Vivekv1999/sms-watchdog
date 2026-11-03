@@ -69,16 +69,8 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelectRole
           </View>
         </TouchableOpacity>
 
-        {/* Security Note */}
-        <View style={styles.securityNote}>
-          <Text style={styles.securityIcon}>🔒</Text>
-          <Text style={styles.securityText}>
-            Zero-Trust Protected: Worker devices are isolated and cannot view messages from other accounts.
-          </Text>
-        </View>
-
         {/* Version Badge */}
-        <Text style={styles.versionText}>SMS Watchdog v1.0.1 (Build 2)</Text>
+        <Text style={styles.versionText}>SMS Watchdog v1.0.1</Text>
       </View>
     </SafeAreaView>
   );
@@ -184,31 +176,11 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     lineHeight: 17,
   },
-  securityNote: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    borderRadius: 12,
-    padding: 12,
-    marginTop: 20,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  securityIcon: {
-    fontSize: 16,
-    marginRight: 10,
-  },
-  securityText: {
-    flex: 1,
-    color: Colors.textMuted,
-    fontSize: 11,
-    lineHeight: 15,
-  },
   versionText: {
     color: Colors.textMuted,
     fontSize: 11,
     textAlign: 'center',
-    marginTop: 18,
+    marginTop: 24,
     fontWeight: '600',
     letterSpacing: 0.5,
   },

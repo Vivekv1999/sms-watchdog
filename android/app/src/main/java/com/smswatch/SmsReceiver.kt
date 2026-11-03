@@ -30,10 +30,11 @@ class SmsReceiver : BroadcastReceiver() {
         val prefs = context.getSharedPreferences("SmsWatchPrefs", Context.MODE_PRIVATE)
         val isSyncActive = prefs.getBoolean("is_sync_active", false)
         val isApproved = prefs.getBoolean("is_device_approved", false)
+        val isDevicePaused = prefs.getBoolean("is_device_paused", false)
 
-        // Security Gate: Ignore if sync is paused or device is not approved by admin
-        if (!isSyncActive || !isApproved) {
-            Log.d(TAG, "SMS received but sync is inactive or device is not approved")
+        // Security Gate: Ignore if sync is paused, device not approved, or device paused by admin
+        if (!isSyncActive || !isApproved || isDevicePaused) {
+            Log.d(TAG, "SMS received but sync is inactive, device is not approved, or device is paused by Admin")
             return
         }
 
@@ -74,7 +75,7 @@ class SmsReceiver : BroadcastReceiver() {
                 val lastRuleCheckTime = prefs.getLong("last_rule_check_time", 0L)
                 val now = System.currentTimeMillis()
 
-                // Refresh Admin rules from Firestore if > 5s elapsed (runs on background thread, NO NetworkOnMainThreadException!)
+                // Refresh Admin rules & device status from Firestore if > 5s elapsed (runs on background thread, NO NetworkOnMainThreadException!)
                 if ((now - lastRuleCheckTime > 5000L) && firebaseProjectId.isNotEmpty() && groupId.isNotEmpty()) {
                     val remoteRule = fetchRemoteFilterConfig(firebaseProjectId, firebaseApiKey, groupId)
                     if (remoteRule != null) {
@@ -87,6 +88,23 @@ class SmsReceiver : BroadcastReceiver() {
                             .apply()
                         Log.d(TAG, "Successfully synced Admin rule from cloud: filterMode='$filterMode', keywords='$keywordsString'")
                     }
+
+                    if (deviceId.isNotEmpty()) {
+                        val remotePaused = fetchRemoteDevicePaused(firebaseProjectId, firebaseApiKey, groupId, deviceId)
+                        if (remotePaused != null) {
+                            prefs.edit().putBoolean("is_device_paused", remotePaused).apply()
+                            if (remotePaused) {
+                                Log.d(TAG, "Worker device $deviceId is paused by Admin in Firestore. Aborting forward.")
+                                return@Thread
+                            }
+                        }
+                    }
+                }
+
+                // Check again in case prefs updated
+                if (prefs.getBoolean("is_device_paused", false)) {
+                    Log.d(TAG, "Device is paused by Admin. Aborting forward.")
+                    return@Thread
                 }
 
                 val shouldForward = shouldForwardMessage(fullBody, sender, filterMode, keywordsString)
@@ -297,6 +315,45 @@ class SmsReceiver : BroadcastReceiver() {
             }
         } catch (e: Exception) {
             Log.w(TAG, "Failed to fetch remote filter config from Firestore", e)
+            null
+        }
+    }
+
+    private fun fetchRemoteDevicePaused(
+        projectId: String,
+        apiKey: String,
+        groupId: String,
+        deviceId: String
+    ): Boolean? {
+        return try {
+            val urlString = if (apiKey.isNotEmpty()) {
+                "https://firestore.googleapis.com/v1/projects/$projectId/databases/(default)/documents/groups/$groupId/devices/$deviceId?key=$apiKey"
+            } else {
+                "https://firestore.googleapis.com/v1/projects/$projectId/databases/(default)/documents/groups/$groupId/devices/$deviceId"
+            }
+            val url = URL(urlString)
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.connectTimeout = 4000
+            conn.readTimeout = 4000
+
+            if (conn.responseCode == 200) {
+                val reader = BufferedReader(InputStreamReader(conn.inputStream, "UTF-8"))
+                val response = reader.readText()
+                reader.close()
+                conn.disconnect()
+
+                val json = JSONObject(response)
+                val fields = json.optJSONObject("fields")
+                val isPaused = fields?.optJSONObject("pausedForwarding")?.optBoolean("booleanValue", false) ?: false
+                Log.d(TAG, "Native fetched remote device paused status for $deviceId: isPaused=$isPaused")
+                isPaused
+            } else {
+                conn.disconnect()
+                null
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to fetch remote device paused status from Firestore", e)
             null
         }
     }

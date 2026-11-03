@@ -443,7 +443,7 @@ export const AdminSettingsScreen: React.FC<AdminSettingsScreenProps> = ({
         </TouchableOpacity>
 
         {/* App Version */}
-        <Text style={styles.versionFooter}>SMS Watchdog v1.0.1 (Build 2)</Text>
+        <Text style={styles.versionFooter}>SMS Watchdog v1.0.1</Text>
       </ScrollView>
     </SafeAreaView>
   );
