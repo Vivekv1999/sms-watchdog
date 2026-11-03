@@ -21,6 +21,7 @@ export interface ManagedDevice {
   requestedAt: number;
   lastPingAt?: number;
   totalForwarded?: number;
+  pausedForwarding?: boolean; // Admin can pause forwarding for this specific device
 }
 
 export type FilterMode = 'ALL' | 'SPECIFIC' | 'NO_FORWARD';
@@ -41,6 +42,7 @@ const KEYS = {
   FIREBASE_CONFIG: '@sms_watch_firebase_config',
   CACHED_MESSAGES: '@sms_watch_cached_messages',
   MANAGED_DEVICES: '@sms_watch_managed_devices',
+  FEED_CLEARED_AT: '@sms_watch_feed_cleared_at',
 };
 
 export const DEFAULT_KEYWORDS = [
@@ -169,6 +171,11 @@ export class StorageService {
   }
 
   static async addMessage(msg: AppMessage): Promise<AppMessage[]> {
+    // Respect the feed-cleared-at cutoff: ignore messages older than the clear timestamp
+    const clearedAt = await this.getFeedClearedAt();
+    if (clearedAt > 0 && msg.timestamp <= clearedAt) {
+      return await this.getCachedMessages();
+    }
     const current = await this.getCachedMessages();
     // Prepend new message and deduplicate by id
     const filtered = current.filter((m) => m.id !== msg.id);
@@ -178,7 +185,18 @@ export class StorageService {
   }
 
   static async clearMessages(): Promise<void> {
+    // Record the exact moment the feed was cleared so remote messages before this are ignored
+    await AsyncStorage.setItem(KEYS.FEED_CLEARED_AT, Date.now().toString());
     await AsyncStorage.removeItem(KEYS.CACHED_MESSAGES);
+  }
+
+  static async getFeedClearedAt(): Promise<number> {
+    const val = await AsyncStorage.getItem(KEYS.FEED_CLEARED_AT);
+    return val ? parseInt(val, 10) : 0;
+  }
+
+  static async resetFeedClearedAt(): Promise<void> {
+    await AsyncStorage.removeItem(KEYS.FEED_CLEARED_AT);
   }
 
   static async getManagedDevices(): Promise<ManagedDevice[]> {

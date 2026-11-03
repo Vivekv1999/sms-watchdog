@@ -8,12 +8,13 @@ import { AdminAuthScreen } from './src/screens/AdminAuthScreen';
 import { AdminDashboardScreen } from './src/screens/AdminDashboardScreen';
 import { AdminSettingsScreen } from './src/screens/AdminSettingsScreen';
 import { AdminDevicesScreen } from './src/screens/AdminDevicesScreen';
+import { AdminWorkerControlScreen } from './src/screens/AdminWorkerControlScreen';
 import { WorkerSetupScreen } from './src/screens/WorkerSetupScreen';
 
 export default function App() {
   const [role, setRole] = useState<'ADMIN' | 'WORKER' | null>(null);
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
-  const [adminScreen, setAdminScreen] = useState<'FEED' | 'SETTINGS' | 'DEVICES'>('FEED');
+  const [adminScreen, setAdminScreen] = useState<'FEED' | 'SETTINGS' | 'DEVICES' | 'WORKER_CONTROL'>('FEED');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -78,6 +79,7 @@ export default function App() {
             <AdminDashboardScreen
               onNavigateToDevices={() => setAdminScreen('DEVICES')}
               onNavigateToSettings={() => setAdminScreen('SETTINGS')}
+              onNavigateToWorkerControl={() => setAdminScreen('WORKER_CONTROL')}
             />
           )}
 
@@ -90,6 +92,10 @@ export default function App() {
 
           {adminScreen === 'DEVICES' && (
             <AdminDevicesScreen onBack={() => setAdminScreen('FEED')} />
+          )}
+
+          {adminScreen === 'WORKER_CONTROL' && (
+            <AdminWorkerControlScreen onBack={() => setAdminScreen('FEED')} />
           )}
         </>
       )}

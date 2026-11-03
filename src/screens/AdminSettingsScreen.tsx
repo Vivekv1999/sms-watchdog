@@ -205,7 +205,7 @@ export const AdminSettingsScreen: React.FC<AdminSettingsScreenProps> = ({
                   filterMode === 'NO_FORWARD' ? styles.activeModeTextDanger : null,
                 ]}
               >
-                {filterMode === 'NO_FORWARD' ? 'NO FORWARD (ADMIN ONLY)' : filterMode}
+                {filterMode === 'NO_FORWARD' ? '🚫 NO FORWARD' : filterMode}
               </Text>
             </View>
           </View>
@@ -221,27 +221,61 @@ export const AdminSettingsScreen: React.FC<AdminSettingsScreenProps> = ({
               filterMode === 'NO_FORWARD' ? styles.adminSwitchCardActive : null,
             ]}
           >
-            <View style={styles.adminSwitchTextCol}>
-              <View style={styles.adminBadgeRow}>
-                <Text style={styles.adminSwitchTitle}>No Message Forwarding Switch</Text>
-                <View style={styles.adminOnlyTag}>
-                  <Text style={styles.adminOnlyTagText}>ADMIN ONLY</Text>
-                </View>
-              </View>
-              <Text style={styles.adminSwitchSub}>
-                {filterMode === 'NO_FORWARD'
-                  ? 'ON — Worker devices will NOT forward any SMS to admin'
-                  : 'OFF — Normal message forwarding is enabled'}
+            <View
+              style={[
+                styles.adminSwitchIconBox,
+                filterMode === 'NO_FORWARD' ? styles.adminSwitchIconBoxActive : null,
+              ]}
+            >
+              <Text style={styles.adminSwitchIcon}>
+                {filterMode === 'NO_FORWARD' ? '🚫' : '📬'}
               </Text>
             </View>
-            <Switch
-              value={filterMode === 'NO_FORWARD'}
-              onValueChange={(val) => {
-                setFilterMode(val ? 'NO_FORWARD' : 'SPECIFIC');
-              }}
-              trackColor={{ false: Colors.border, true: Colors.danger }}
-              thumbColor={filterMode === 'NO_FORWARD' ? Colors.white : Colors.textSecondary}
-            />
+
+            <View style={styles.adminSwitchTextCol}>
+              <View style={styles.adminBadgeRow}>
+                <Text style={styles.adminSwitchTitle} numberOfLines={1}>
+                  No Message Forwarding
+                </Text>
+                <View
+                  style={[
+                    styles.adminOnlyTag,
+                    filterMode === 'NO_FORWARD' ? styles.adminOnlyTagActive : null,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.adminOnlyTagText,
+                      filterMode === 'NO_FORWARD' ? styles.adminOnlyTagTextActive : null,
+                    ]}
+                  >
+                    ADMIN ONLY
+                  </Text>
+                </View>
+              </View>
+              <Text
+                style={[
+                  styles.adminSwitchSub,
+                  filterMode === 'NO_FORWARD' ? styles.adminSwitchSubActive : null,
+                ]}
+                numberOfLines={1}
+              >
+                {filterMode === 'NO_FORWARD'
+                  ? 'ON — Worker SIM phones will not forward any SMS'
+                  : 'OFF — Normal forwarding active based on rules'}
+              </Text>
+            </View>
+
+            <View style={styles.switchWrapper}>
+              <Switch
+                value={filterMode === 'NO_FORWARD'}
+                onValueChange={(val) => {
+                  setFilterMode(val ? 'NO_FORWARD' : 'SPECIFIC');
+                }}
+                trackColor={{ false: Colors.border, true: Colors.danger }}
+                thumbColor={filterMode === 'NO_FORWARD' ? Colors.white : Colors.textSecondary}
+              />
+            </View>
           </View>
 
           {/* Mode Selector */}
@@ -550,6 +584,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 4,
   },
   activeModeBadge: {
     backgroundColor: 'rgba(59, 130, 246, 0.15)',
@@ -574,11 +611,11 @@ const styles = StyleSheet.create({
   adminSwitchCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: Colors.cardElevated,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 14,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: Colors.border,
   },
@@ -586,14 +623,34 @@ const styles = StyleSheet.create({
     borderColor: Colors.danger,
     backgroundColor: 'rgba(239, 68, 68, 0.08)',
   },
+  adminSwitchIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: Colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  adminSwitchIconBoxActive: {
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+  },
+  adminSwitchIcon: {
+    fontSize: 16,
+  },
   adminSwitchTextCol: {
     flex: 1,
-    marginRight: 10,
+    marginHorizontal: 12,
+    justifyContent: 'center',
   },
   adminBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 2,
   },
   adminSwitchTitle: {
     color: Colors.textPrimary,
@@ -601,23 +658,38 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   adminOnlyTag: {
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    backgroundColor: 'rgba(148, 163, 184, 0.15)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
     borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.3)',
+  },
+  adminOnlyTagActive: {
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
     borderColor: 'rgba(239, 68, 68, 0.4)',
   },
   adminOnlyTagText: {
-    color: Colors.danger,
-    fontSize: 9,
+    color: Colors.textSecondary,
+    fontSize: 8,
     fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  adminOnlyTagTextActive: {
+    color: Colors.danger,
   },
   adminSwitchSub: {
     color: Colors.textSecondary,
     fontSize: 11,
-    marginTop: 3,
     lineHeight: 15,
+  },
+  adminSwitchSubActive: {
+    color: Colors.danger,
+    fontWeight: '600',
+  },
+  switchWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modeOptionSelectedDanger: {
     borderColor: Colors.danger,

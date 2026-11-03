@@ -22,11 +22,13 @@ import { parseSmsDetails } from '../utils/otpExtractor';
 interface AdminDashboardScreenProps {
   onNavigateToDevices: () => void;
   onNavigateToSettings: () => void;
+  onNavigateToWorkerControl: () => void;
 }
 
 export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
   onNavigateToDevices,
   onNavigateToSettings,
+  onNavigateToWorkerControl,
 }) => {
   const [messages, setMessages] = useState<AppMessage[]>([]);
   const [filteredMessages, setFilteredMessages] = useState<AppMessage[]>([]);
@@ -200,16 +202,24 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
   const handleClearMessages = () => {
     Alert.alert(
       'Clear Feed',
-      'Do you want to clear all messages from your local feed?',
+      'This will permanently delete all messages from the cloud and clear your local feed. New messages arriving after this point will still appear.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Clear All',
+          text: 'Delete & Clear',
           style: 'destructive',
           onPress: async () => {
+            // 1. Clear local cache and save clearedAt timestamp
             await StorageService.clearMessages();
             setMessages([]);
             setFilteredMessages([]);
+
+            // 2. Delete all documents from Firestore so remote devices also see empty feed
+            const fb = await StorageService.getFirebaseConfig();
+            const gid = await StorageService.getGroupId();
+            if (fb.projectId && gid) {
+              CloudSyncService.deleteAllGroupMessages(fb.projectId, fb.apiKey, gid);
+            }
           },
         },
       ]
@@ -252,6 +262,13 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
         <View style={styles.headerRight}>
           <TouchableOpacity
             style={styles.headerBtn}
+            onPress={onNavigateToWorkerControl}
+          >
+            <Text style={styles.headerBtnIcon}>🎛️</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.headerBtn}
             onPress={onNavigateToDevices}
           >
             <Text style={styles.headerBtnIcon}>📱</Text>
@@ -274,32 +291,63 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
       {/* Admin Quick Control: No Message Forwarding Switch */}
       <View
         style={[
-          styles.quickControlBanner,
-          filterConfig.mode === 'NO_FORWARD' ? styles.quickControlBannerActive : null,
+          styles.quickControlCard,
+          filterConfig.mode === 'NO_FORWARD' ? styles.quickControlCardActive : null,
         ]}
       >
-        <View style={styles.quickControlLeft}>
-          <View style={styles.quickControlTitleRow}>
-            <Text style={styles.quickControlIcon}>
-              {filterConfig.mode === 'NO_FORWARD' ? '🚫' : '📬'}
-            </Text>
-            <Text style={styles.quickControlTitle}>No Message Forwarding Switch</Text>
-            <View style={styles.adminOnlyPill}>
-              <Text style={styles.adminOnlyPillText}>ADMIN ONLY</Text>
-            </View>
-          </View>
-          <Text style={styles.quickControlSubtitle}>
-            {filterConfig.mode === 'NO_FORWARD'
-              ? 'ON: Worker SIM devices will NOT forward any SMS'
-              : 'OFF: Worker devices are actively forwarding SMS'}
+        <View
+          style={[
+            styles.quickControlIconBox,
+            filterConfig.mode === 'NO_FORWARD' ? styles.quickControlIconBoxActive : null,
+          ]}
+        >
+          <Text style={styles.quickControlIcon}>
+            {filterConfig.mode === 'NO_FORWARD' ? '🚫' : '📬'}
           </Text>
         </View>
-        <Switch
-          value={filterConfig.mode === 'NO_FORWARD'}
-          onValueChange={toggleNoForwardMode}
-          trackColor={{ false: Colors.border, true: Colors.danger }}
-          thumbColor={filterConfig.mode === 'NO_FORWARD' ? Colors.white : Colors.textSecondary}
-        />
+
+        <View style={styles.quickControlTextCol}>
+          <View style={styles.quickControlBadgeRow}>
+            <Text style={styles.quickControlHeading} numberOfLines={1}>
+              No Message Forwarding
+            </Text>
+            <View
+              style={[
+                styles.adminOnlyPill,
+                filterConfig.mode === 'NO_FORWARD' ? styles.adminOnlyPillActive : null,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.adminOnlyPillText,
+                  filterConfig.mode === 'NO_FORWARD' ? styles.adminOnlyPillTextActive : null,
+                ]}
+              >
+                ADMIN ONLY
+              </Text>
+            </View>
+          </View>
+          <Text
+            style={[
+              styles.quickControlSubtitle,
+              filterConfig.mode === 'NO_FORWARD' ? styles.quickControlSubtitleActive : null,
+            ]}
+            numberOfLines={1}
+          >
+            {filterConfig.mode === 'NO_FORWARD'
+              ? '⛔ Active • Worker SMS forwarding paused'
+              : 'Forwarding enabled according to rules'}
+          </Text>
+        </View>
+
+        <View style={styles.switchWrapper}>
+          <Switch
+            value={filterConfig.mode === 'NO_FORWARD'}
+            onValueChange={toggleNoForwardMode}
+            trackColor={{ false: Colors.border, true: Colors.danger }}
+            thumbColor={filterConfig.mode === 'NO_FORWARD' ? Colors.white : Colors.textSecondary}
+          />
+        </View>
       </View>
 
       {/* Pending Approval Banner (Alerts Admin if new APK was installed) */}
@@ -498,59 +546,90 @@ const styles = StyleSheet.create({
     color: Colors.danger,
     fontWeight: '800',
   },
-  quickControlBanner: {
+  quickControlCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: Colors.card,
     marginHorizontal: 16,
     marginTop: 10,
-    marginBottom: 4,
+    marginBottom: 6,
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingVertical: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  quickControlBannerActive: {
+  quickControlCardActive: {
     borderColor: Colors.danger,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
   },
-  quickControlLeft: {
-    flex: 1,
-    marginRight: 10,
-  },
-  quickControlTitleRow: {
-    flexDirection: 'row',
+  quickControlIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: Colors.cardElevated,
     alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  quickControlIconBoxActive: {
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
   },
   quickControlIcon: {
-    fontSize: 14,
-    marginRight: 6,
+    fontSize: 16,
   },
-  quickControlTitle: {
+  quickControlTextCol: {
+    flex: 1,
+    marginHorizontal: 12,
+    justifyContent: 'center',
+  },
+  quickControlBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 2,
+  },
+  quickControlHeading: {
     color: Colors.textPrimary,
     fontSize: 13,
     fontWeight: '700',
-    marginRight: 6,
   },
   adminOnlyPill: {
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
+    backgroundColor: 'rgba(148, 163, 184, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: 4,
     borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.3)',
+  },
+  adminOnlyPillActive: {
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
     borderColor: 'rgba(239, 68, 68, 0.4)',
   },
   adminOnlyPillText: {
-    color: Colors.danger,
+    color: Colors.textSecondary,
     fontSize: 8,
     fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  adminOnlyPillTextActive: {
+    color: Colors.danger,
   },
   quickControlSubtitle: {
     color: Colors.textSecondary,
     fontSize: 11,
-    marginTop: 2,
+    lineHeight: 15,
+  },
+  quickControlSubtitleActive: {
+    color: Colors.danger,
+    fontWeight: '600',
+  },
+  switchWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerRight: {
     flexDirection: 'row',

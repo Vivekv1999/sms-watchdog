@@ -26,6 +26,7 @@ export const WorkerSetupScreen: React.FC<WorkerSetupScreenProps> = ({ onBackToRo
   const [approvalStatus, setApprovalStatus] = useState<'UNPAIRED' | 'PENDING' | 'APPROVED' | 'BLOCKED'>('UNPAIRED');
   const [isServiceActive, setIsServiceActive] = useState(false);
   const [isAdminNoForward, setIsAdminNoForward] = useState(false);
+  const [isDevicePaused, setIsDevicePaused] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -51,11 +52,18 @@ export const WorkerSetupScreen: React.FC<WorkerSetupScreenProps> = ({ onBackToRo
     const fb = await StorageService.getFirebaseConfig();
     const storedGid = await StorageService.getGroupId();
     const cleanGroup = (groupCode || storedGid || '').trim().toUpperCase();
+    const devId = hardwareInfo?.deviceId || 'DEV-SIM';
     if (fb.projectId && cleanGroup) {
+      // Check group-wide no-forward mode
       const cfg = await CloudSyncService.fetchGroupFilterConfig(fb.projectId, fb.apiKey, cleanGroup);
       if (cfg) {
         setIsAdminNoForward(cfg.mode === 'NO_FORWARD');
       }
+      // Check per-device pause state
+      const paused = await CloudSyncService.checkDevicePausedStatus(
+        fb.projectId, fb.apiKey, cleanGroup, devId
+      );
+      setIsDevicePaused(paused);
     }
   };
 
@@ -358,13 +366,28 @@ export const WorkerSetupScreen: React.FC<WorkerSetupScreenProps> = ({ onBackToRo
               </View>
             )}
 
+            {/* Per-device pause notice (Admin paused only this device) */}
+            {!isAdminNoForward && isDevicePaused && (
+              <View style={styles.devicePausedNotice}>
+                <View style={styles.adminDisabledBadgeRow}>
+                  <Text style={styles.adminDisabledIcon}>⏸️</Text>
+                  <Text style={styles.adminDisabledTitle}>This Device is Paused by Admin</Text>
+                </View>
+                <Text style={styles.adminDisabledDesc}>
+                  The Admin has individually paused SMS forwarding for this device. Other worker phones may still be forwarding. Contact Admin to resume.
+                </Text>
+              </View>
+            )}
+
             {/* Toggle Service */}
             <View style={styles.serviceToggleBox}>
-              <View>
+              <View style={styles.serviceToggleTextContainer}>
                 <Text style={styles.serviceToggleTitle}>24/7 SMS Watchdog</Text>
                 <Text style={styles.serviceToggleSub}>
                   {isAdminNoForward
                     ? 'Forwarding paused by Admin'
+                    : isDevicePaused
+                    ? 'This device paused by Admin'
                     : isServiceActive
                     ? 'Running in background'
                     : 'Sync paused'}
@@ -636,6 +659,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 14,
+  },
+  serviceToggleTextContainer: {
+    flex: 1,
+    marginRight: 12,
   },
   serviceToggleTitle: {
     color: Colors.textPrimary,

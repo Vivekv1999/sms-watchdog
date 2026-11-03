@@ -53,12 +53,18 @@ export class CloudSyncService {
       // Sort newest first
       messages.sort((a, b) => b.timestamp - a.timestamp);
 
-      // Cache locally
-      for (const m of messages) {
+      // Respect feed-cleared-at: drop messages that arrived before the last clear
+      const clearedAt = await StorageService.getFeedClearedAt();
+      const freshMessages = clearedAt > 0
+        ? messages.filter((m) => m.timestamp > clearedAt)
+        : messages;
+
+      // Cache locally (addMessage also enforces the clearedAt guard)
+      for (const m of freshMessages) {
         await StorageService.addMessage(m);
       }
 
-      return messages;
+      return freshMessages;
     } catch (e) {
       console.warn('Could not sync with Firestore, using cached messages', e);
       return await StorageService.getCachedMessages();
@@ -180,6 +186,7 @@ export class CloudSyncService {
           status: (fields.status?.stringValue as any) || 'PENDING',
           requestedAt: parseInt(fields.requestedAt?.integerValue || Date.now().toString(), 10),
           lastPingAt: parseInt(fields.lastPing?.integerValue || Date.now().toString(), 10),
+          pausedForwarding: fields.pausedForwarding?.booleanValue === true,
         };
       });
 
@@ -375,6 +382,116 @@ export class CloudSyncService {
     } catch (e) {
       console.warn('Failed to fetch group filter config', e);
       return null;
+    }
+  }
+
+  /**
+   * Admin: Pause or resume forwarding for a specific worker device.
+   * Writes pausedForwarding boolean to that device's Firestore doc.
+   * The worker app reads this field on every sync and blocks forwarding if true.
+   */
+  static async setDeviceForwardingPaused(
+    projectId: string,
+    apiKey: string,
+    groupId: string,
+    deviceId: string,
+    paused: boolean
+  ): Promise<boolean> {
+    // Update local cache too
+    const devices = await StorageService.getManagedDevices();
+    const updated = devices.map((d) =>
+      d.deviceId === deviceId ? { ...d, pausedForwarding: paused } : d
+    );
+    await StorageService.saveManagedDevices(updated);
+
+    if (!projectId || !groupId) return true;
+
+    try {
+      const url = apiKey
+        ? `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/groups/${groupId}/devices/${deviceId}?updateMask.fieldPaths=pausedForwarding&key=${apiKey}`
+        : `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/groups/${groupId}/devices/${deviceId}?updateMask.fieldPaths=pausedForwarding`;
+
+      const res = await fetch(url, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fields: {
+            pausedForwarding: { booleanValue: paused },
+          },
+        }),
+      });
+      return res.ok;
+    } catch (e) {
+      console.warn('setDeviceForwardingPaused failed', e);
+      return false;
+    }
+  }
+
+  /**
+   * Worker: Check if admin has paused forwarding for this specific device.
+   */
+  static async checkDevicePausedStatus(
+    projectId: string,
+    apiKey: string,
+    groupId: string,
+    deviceId: string
+  ): Promise<boolean> {
+    if (!projectId || !groupId) return false;
+    try {
+      const url = apiKey
+        ? `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/groups/${groupId}/devices/${deviceId}?key=${apiKey}`
+        : `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/groups/${groupId}/devices/${deviceId}`;
+      const res = await fetch(url);
+      if (!res.ok) return false;
+      const data = await res.json();
+      return data.fields?.pausedForwarding?.booleanValue === true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Delete ALL message documents from Firestore for this group.
+   * Called when admin taps "Clear Feed" — removes from cloud so
+   * they never reappear on refresh, even from remote devices.
+   * Returns the number of successfully deleted documents.
+   */
+  static async deleteAllGroupMessages(
+    projectId: string,
+    apiKey: string,
+    groupId: string
+  ): Promise<number> {
+    if (!projectId || !groupId) return 0;
+
+    try {
+      // 1. Fetch all message document names (pageSize=300 to cover large feeds)
+      const listUrl = apiKey
+        ? `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/groups/${groupId}/messages?pageSize=300&key=${apiKey}`
+        : `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/groups/${groupId}/messages?pageSize=300`;
+
+      const listRes = await fetch(listUrl);
+      if (!listRes.ok) throw new Error(`List failed: ${listRes.status}`);
+
+      const listData = await listRes.json();
+      if (!listData.documents || listData.documents.length === 0) return 0;
+
+      // 2. Delete each document individually (Firestore REST has no batch-delete)
+      let deleted = 0;
+      await Promise.all(
+        listData.documents.map(async (doc: any) => {
+          const docName: string = doc.name; // full resource name
+          const deleteUrl = apiKey
+            ? `https://firestore.googleapis.com/v1/${docName}?key=${apiKey}`
+            : `https://firestore.googleapis.com/v1/${docName}`;
+          const delRes = await fetch(deleteUrl, { method: 'DELETE' });
+          if (delRes.ok) deleted++;
+        })
+      );
+
+      return deleted;
+    } catch (e) {
+      console.warn('deleteAllGroupMessages failed', e);
+      return 0;
     }
   }
 }
